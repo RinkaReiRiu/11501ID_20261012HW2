@@ -32,7 +32,7 @@
   </style>
 </head>
 <body>
-  <div class="title">跳躍中的貓咪</div>
+  <div class="title">Model from https://skfb.ly/o8yrL</div>
 
   <script type="module">
     import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
@@ -101,7 +101,7 @@
     const loader = new GLTFLoader();
 
     loader.load(
-      "models/cat.glb",
+      "./models/cat.glb",
       (gltf) => {
         const model = gltf.scene;
 
