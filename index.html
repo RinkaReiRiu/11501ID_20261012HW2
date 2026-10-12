@@ -3,44 +3,115 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>跳躍旋轉的貓咪</title>
 
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
     html,
     body {
-      margin: 0;
       width: 100%;
       height: 100%;
+      margin: 0;
       overflow: hidden;
-      background: linear-gradient(135deg, #ffe5ec, #dff5ff);
+    }
+
+    body {
+      background:
+        radial-gradient(circle at 50% 35%, #ffffff 0%, transparent 35%),
+        linear-gradient(135deg, #ffe1ec, #dff4ff);
+      font-family: Arial, "Noto Sans TC", sans-serif;
     }
 
     canvas {
       display: block;
+      width: 100%;
+      height: 100%;
     }
 
     .title {
       position: fixed;
-      top: 30px;
+      top: 28px;
+      left: 0;
       width: 100%;
+      z-index: 10;
+      color: #513e50;
       text-align: center;
-      color: #4b3b47;
-      font-family: sans-serif;
-      font-size: 28px;
+      font-size: clamp(24px, 4vw, 42px);
+      font-weight: bold;
+      letter-spacing: 0.08em;
       pointer-events: none;
+      text-shadow: 0 2px 8px rgba(255, 255, 255, 0.8);
+    }
+
+    .hint {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      z-index: 10;
+      transform: translateX(-50%);
+      color: #66566a;
+      font-size: 14px;
+      white-space: nowrap;
+      opacity: 0.8;
+      pointer-events: none;
+    }
+
+    .loading {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      z-index: 20;
+      transform: translate(-50%, -50%);
+      color: #513e50;
+      font-size: 18px;
+    }
+
+    .error {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      z-index: 20;
+      width: min(90%, 520px);
+      padding: 20px;
+      transform: translate(-50%, -50%);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.9);
+      color: #a33f54;
+      text-align: center;
+      line-height: 1.7;
+      box-shadow: 0 8px 30px rgba(80, 50, 80, 0.15);
     }
   </style>
 </head>
+
 <body>
-  <div class="title">Model from https://skfb.ly/o8yrL</div>
+  <div class="title">跳躍中的貓咪</div>
+  <div id="loading" class="loading">正在載入貓咪模型⋯</div>
+  <div class="hint">拖曳畫面可以旋轉視角</div>
+
+  <!-- 使用 Import Map，解決瀏覽器找不到 three 套件的問題 -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
 
   <script type="module">
-    import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
-    import { GLTFLoader } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
-    import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+    import * as THREE from "three";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
+    // 建立場景
     const scene = new THREE.Scene();
 
+    // 建立攝影機
     const camera = new THREE.PerspectiveCamera(
       45,
       window.innerWidth / window.innerHeight,
@@ -48,8 +119,9 @@
       100
     );
 
-    camera.position.set(0, 1.5, 5);
+    camera.position.set(0, 1.2, 5);
 
+    // 建立渲染器
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true
@@ -57,8 +129,13 @@
 
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
 
     document.body.appendChild(renderer.domElement);
 
@@ -66,25 +143,44 @@
     const ambientLight = new THREE.HemisphereLight(
       0xffffff,
       0x8899aa,
-      2
+      2.2
     );
 
     scene.add(ambientLight);
 
-    // 主燈光
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 3);
-    directionalLight.position.set(3, 5, 4);
+    // 主光源
+    const directionalLight = new THREE.DirectionalLight(
+      0xffffff,
+      3.5
+    );
+
+    directionalLight.position.set(3, 6, 4);
     directionalLight.castShadow = true;
 
+    directionalLight.shadow.mapSize.width = 2048;
+    directionalLight.shadow.mapSize.height = 2048;
+
     scene.add(directionalLight);
+
+    // 輔助柔光
+    const fillLight = new THREE.PointLight(
+      0xffd6e5,
+      1.5,
+      10
+    );
+
+    fillLight.position.set(-3, 2, 3);
+    scene.add(fillLight);
 
     // 地面
     const ground = new THREE.Mesh(
       new THREE.CircleGeometry(2.2, 64),
       new THREE.MeshStandardMaterial({
         color: 0xffffff,
+        roughness: 0.8,
+        metalness: 0,
         transparent: true,
-        opacity: 0.35
+        opacity: 0.45
       })
     );
 
@@ -94,72 +190,164 @@
 
     scene.add(ground);
 
-    // 貓咪模型容器
+    // 地面陰影圓
+    const shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(1.1, 64),
+      new THREE.MeshBasicMaterial({
+        color: 0x9d7898,
+        transparent: true,
+        opacity: 0.18
+      })
+    );
+
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.position.y = -1.235;
+
+    scene.add(shadow);
+
+    // 貓咪容器
     const cat = new THREE.Group();
+
+    cat.position.y = 0;
     scene.add(cat);
 
+    let model = null;
+    let mixer = null;
+
+    // 載入 GLB 模型
     const loader = new GLTFLoader();
 
     loader.load(
       "./models/cat.glb",
+
       (gltf) => {
-        const model = gltf.scene;
+        model = gltf.scene;
 
         model.traverse((object) => {
           if (object.isMesh) {
             object.castShadow = true;
             object.receiveShadow = true;
+
+            if (object.material) {
+              object.material.needsUpdate = true;
+            }
           }
         });
 
+        // 模型大小
         model.scale.set(1.5, 1.5, 1.5);
+
+        // 調整模型垂直位置
         model.position.y = -1.1;
 
         cat.add(model);
 
-        // 如果模型內有動畫，播放第一個動畫
-        if (gltf.animations.length > 0) {
-          const mixer = new THREE.AnimationMixer(model);
+        // 如果 GLB 內含動畫，播放第一個動畫
+        if (gltf.animations && gltf.animations.length > 0) {
+          mixer = new THREE.AnimationMixer(model);
+
           const action = mixer.clipAction(gltf.animations[0]);
           action.play();
+        }
 
-          cat.userData.mixer = mixer;
+        document.getElementById("loading").style.display = "none";
+      },
+
+      (progress) => {
+        if (progress.total > 0) {
+          const percent = Math.round(
+            (progress.loaded / progress.total) * 100
+          );
+
+          document.getElementById(
+            "loading"
+          ).textContent = `正在載入貓咪模型⋯ ${percent}%`;
         }
       },
-      undefined,
+
       (error) => {
         console.error("模型載入失敗：", error);
+
+        const loading = document.getElementById("loading");
+
+        loading.className = "error";
+        loading.innerHTML = `
+          模型載入失敗。<br>
+          請確認檔案位於：
+          <br>
+          <strong>models/cat.glb</strong>
+          <br><br>
+          並確認檔案名稱的大小寫完全一致。
+        `;
       }
     );
 
-    // 可用滑鼠拖曳視角
-    const controls = new OrbitControls(camera, renderer.domElement);
+    // 滑鼠與觸控視角控制
+    const controls = new OrbitControls(
+      camera,
+      renderer.domElement
+    );
+
     controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
     controls.enablePan = false;
+
     controls.minDistance = 3;
     controls.maxDistance = 8;
 
+    controls.target.set(0, 0, 0);
+    controls.update();
+
+    // 動畫計時器
     const clock = new THREE.Clock();
 
     function animate() {
       requestAnimationFrame(animate);
 
-      const elapsed = clock.getElapsedTime();
       const delta = clock.getDelta();
+      const elapsed = clock.elapsedTime;
 
-      // 持續旋轉
-      cat.rotation.y += 0.02;
-
-      // 上下跳躍
+      /*
+       * 跳躍動畫
+       *
+       * Math.sin() 產生平滑週期。
+       * abs() 讓貓咪始終往上跳，再回到原位。
+       */
       const jumpHeight = 0.45;
       const jumpSpeed = 2.4;
 
-      cat.position.y = Math.abs(Math.sin(elapsed * jumpSpeed)) * jumpHeight;
+      const jumpOffset =
+        Math.abs(Math.sin(elapsed * jumpSpeed)) * jumpHeight;
 
-      // 模型內建動畫
-      if (cat.userData.mixer) {
-        cat.userData.mixer.update(delta);
+      cat.position.y = jumpOffset;
+
+      /*
+       * 持續旋轉
+       */
+      cat.rotation.y += delta * 1.4;
+
+      /*
+       * 輕微前後傾斜，讓跳躍更自然
+       */
+      cat.rotation.z =
+        Math.sin(elapsed * jumpSpeed) * 0.04;
+
+      /*
+       * 模型如果有內建動畫，持續更新
+       */
+      if (mixer) {
+        mixer.update(delta);
       }
+
+      /*
+       * 陰影隨跳躍高度縮放，增加立體感
+       */
+      const shadowScale =
+        1 - jumpOffset * 0.35;
+
+      shadow.scale.set(shadowScale, shadowScale, shadowScale);
+      shadow.material.opacity =
+        0.18 - jumpOffset * 0.08;
 
       controls.update();
       renderer.render(scene, camera);
@@ -167,11 +355,21 @@
 
     animate();
 
+    // 重新調整視窗大小
     window.addEventListener("resize", () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.aspect =
+        window.innerWidth / window.innerHeight;
+
       camera.updateProjectionMatrix();
 
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+      );
+
+      renderer.setPixelRatio(
+        Math.min(window.devicePixelRatio, 2)
+      );
     });
   </script>
 </body>
